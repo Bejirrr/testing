@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>LEX PANEL AKSES — GitHub TXT Editor (PRO)</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#071022; --card:rgba(255,255,255,0.03); --muted:#9fb3c9; --accent1:#06b6d4; --accent2:#8b5cf6;
+    --success:#22c55e; --danger:#ef4444;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;background:
+    linear-gradient(120deg,#020617,#07102a 40%,#0b1220 100%);color:#e6eef8;min-height:100vh;display:flex;flex-direction:column;align-items:center}
+  header{padding:36px 16px 8px;text-align:center}
+  h1{font-size:48px;margin:0;font-weight:800;letter-spacing:6px;animation:rgbText 6s linear infinite}
+  @keyframes rgbText{
+    0%{color:#ff3b3b}25%{color:#ffdd57}50%{color:#3bffb0}75%{color:#7aa2ff}100%{color:#ff3b3b}
+  }
+  .sub{color:var(--muted);margin-top:8px}
+  main{width:100%;max-width:1100px;padding:20px}
+  .card{background:var(--card);border-radius:14px;padding:18px;box-shadow:0 10px 30px rgba(2,6,23,0.6);border:1px solid rgba(255,255,255,0.02)}
+  .controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+  .group{display:flex;gap:8px;align-items:center}
+  label.tag{font-size:12px;color:var(--muted);padding:6px 8px;border-radius:8px;background:rgba(0,0,0,0.25)}
+  input[type=text], input[type=password], select{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.04);
+    padding:10px;border-radius:10px;color:inherit;min-width:200px}
+  button{background:linear-gradient(90deg,var(--accent1),var(--accent2));border:none;padding:10px 14px;border-radius:10px;color:#001;font-weight:700;cursor:pointer}
+  button.ghost{background:transparent;color:var(--muted);border:1px solid rgba(255,255,255,0.04)}
+  .editor{width:100%;min-height:420px;border-radius:12px;padding:14px;font-family:ui-monospace,Menlo,monospace;background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));color:#e6eef8;border:1px solid rgba(255,255,255,0.03);resize:vertical;outline:none;display:block}
+  .bottom-row{display:flex;gap:10px;align-items:center;justify-content:space-between;margin-top:12px;flex-wrap:wrap}
+  .history-list{margin-top:12px;max-height:260px;overflow:auto;border-radius:10px;border:1px solid rgba(255,255,255,0.02);background:rgba(0,0,0,0.35);padding:10px}
+  .history-item{display:flex;justify-content:space-between;align-items:center;padding:8px;border-radius:8px;margin-bottom:8px;background:linear-gradient(90deg,rgba(255,255,255,0.01),transparent)}
+  .small{font-size:13px;color:var(--muted)}
+  .preview{white-space:pre-wrap;font-family:ui-monospace,Menlo,monospace;background:rgba(0,0,0,0.5);padding:10px;border-radius:8px;margin-top:8px;color:#dbeafe}
+  .notif{position:fixed;right:18px;bottom:18px;padding:12px 16px;border-radius:10px;background:#001f14;color:var(--muted);box-shadow:0 8px 30px rgba(2,6,23,0.6);display:flex;gap:10px;align-items:center;transform:translateY(20px);opacity:0;transition:all .35s ease}
+  .notif.show{opacity:1;transform:none}
+  .diff-added{background:rgba(34,197,94,0.12);display:block;padding:4px;border-left:4px solid rgba(34,197,94,0.3)}
+  .diff-removed{background:rgba(239,68,68,0.08);display:block;padding:4px;border-left:4px solid rgba(239,68,68,0.2)}
+  footer{width:100%;text-align:center;color:var(--muted);font-size:13px;padding:18px 0}
+  @media(max-width:840px){h1{font-size:34px} .controls{flex-direction:column;align-items:stretch} .bottom-row{flex-direction:column;align-items:stretch}}
+</style>
+</head>
+<body>
+<header>
+  <h1>LEX PANEL AKSES</h1>
+  <div class="sub">Modern GitHub TXT editor — autosave history to GitHub & local</div>
+</header>
+
+<main>
+  <div class="card">
+    <div class="controls">
+      <div class="group"><label class="tag">Owner</label><input id="owner" type="text" value="putraborz"></div>
+      <div class="group"><label class="tag">Repo</label><input id="repo" type="text" value="VerifikasiScWata"></div>
+      <div class="group"><label class="tag">Path</label><input id="path" type="text" value="Loader/vip.txt"></div>
+      <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+        <input id="token" type="password" placeholder="GitHub token (required to save)"/>
+        <button id="btnLoad">Load</button>
+        <button id="btnSave">Save</button>
+        <button id="btnHistory" class="ghost">View History</button>
+      </div>
+    </div>
+
+    <textarea id="editor" class="editor" placeholder="File contents will load here..."></textarea>
+
+    <div class="bottom-row">
+      <div class="small">Current SHA: <span id="sha">-</span></div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button id="btnPreview" class="ghost">Preview Diff</button>
+        <button id="btnRestore" class="ghost">Restore Selected</button>
+        <button id="btnClear" class="ghost">Clear Editor</button>
+      </div>
+    </div>
+
+    <div id="historyPanel" style="margin-top:14px;display:none">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div class="small">History (saved to <code>Loader/history.json</code> and localStorage)</div>
+        <div style="display:flex;gap:8px">
+          <button id="btnRefreshHistory" class="ghost">Refresh</button>
+          <button id="btnCloseHistory" class="ghost">Close</button>
+        </div>
+      </div>
+      <div id="historyList" class="history-list"></div>
+      <div id="previewBox" class="preview" style="display:none"></div>
+    </div>
+
+  </div>
+</main>
+
+<div id="notif" class="notif">Notification</div>
+<footer>LEX PANEL AKSES — Built for you</footer>
+
+<script>
+/* === Utilities === */
+const $ = id => document.getElementById(id);
+const ownerEl = $('owner'), repoEl = $('repo'), pathEl = $('path'), tokenEl = $('token'), editor = $('editor');
+const btnLoad = $('btnLoad'), btnSave = $('btnSave'), btnHistory = $('btnHistory'), btnPreview = $('btnPreview');
+const btnRestore = $('btnRestore'), btnClear = $('btnClear'), shaEl = $('sha');
+const historyPanel = $('historyPanel'), historyList = $('historyList'), previewBox = $('previewBox');
+const notif = $('notif');
+
+function toast(msg, ok=true) {
+  notif.textContent = msg;
+  notif.style.background = ok ? 'linear-gradient(90deg,#052e11,#083b21)' : 'linear-gradient(90deg,#3a0710,#5b0f18)';
+  notif.classList.add('show');
+  setTimeout(()=>notif.classList.remove('show'), 3200);
+}
+
+// Date formatted to Jakarta (WIB)
+function nowWIBString() {
+  const dt = new Date();
+  return new Intl.DateTimeFormat('id-ID', {
+    timeZone: 'Asia/Jakarta',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit'
+  }).format(dt).replace(',', '');
+}
+
+// safe b64 helpers (UTF-8)
+function utf8ToB64(str){ return btoa(unescape(encodeURIComponent(str))); }
+function b64ToUtf8(b64){ try{return decodeURIComponent(escape(atob(b64)));}catch(e){return atob(b64);} }
+
+/* === GitHub API helpers === */
+async function ghGetContent(owner, repo, filepath, token) {
+  const url = `https://api.github.com/repos/${owner}/${repo}/contents/${filepath}`;
+  const headers = { 'Accept':'application/vnd.github.v3+json' };
+  if (token) headers['Authorization'] = 'token ' + token;
+  const res = await fetch(url, { headers });
+  if (!res.ok) throw new Error('GET failed: ' + res.status + ' ' + (await res.text()));
+  return await res.json();
+}
+async function ghPutContent(owner, repo, filepath, message, contentB64, sha, token) {
+  const url = `https://api.github.com/repos/${owner}/${repo}/contents/${filepath}`;
+  const body = { message, content: contentB64 };
+  if (sha) body.sha = sha;
+  const res = await fetch(url, {
+    method:'PUT',
+    headers:{
+      'Accept':'application/vnd.github.v3+json',
+      'Content-Type':'application/json',
+      'Authorization':'token ' + token
+    },
+    body: JSON.stringify(body)
+  });
+  const j = await res.json();
+  if (!res.ok) throw new Error(j.message || JSON.stringify(j));
+  return j;
+}
+
+/* === Core features === */
+let currentHistory = []; // cached history entries
+let selectedHistoryIndex = null;
+
+// Default paths
+function getDefaultPaths() {
+  return { owner: ownerEl.value.trim(), repo: repoEl.value.trim(), path: pathEl.value.trim() };
+}
+
+async function loadFile() {
+  const { owner, repo, path } = getDefaultPaths();
+  if (!owner||!repo||!path) return toast('owner/repo/path required', false);
+  try {
+    toast('Loading file...');
+    // Use contents API to get base64 + sha
+    const j = await ghGetContent(owner, repo, path, null); // public read doesn't need token
+    const content = j.content ? b64ToUtf8(j.content.replace(/\n/g,'')) : '';
+    editor.value = content;
+    shaEl.textContent = j.sha || '-';
+    toast('File loaded', true);
+  } catch (e) {
+    toast('Load error: ' + e.message, false);
+  }
+}
+
+// Save: steps:
+// 1) Get current file (to obtain sha and old content)
+// 2) Append an entry to Loader/history.json (get existing history.json -> update -> put)
+// 3) Put new vip.txt content
+async function saveFile() {
+  const token = tokenEl.value.trim();
+  if (!token) return toast('Token required to save', false);
+  const { owner, repo, path } = getDefaultPaths();
+  if (!owner||!repo||!path) return toast('owner/repo/path required', false);
+  const contentRaw = editor.value;
+  try {
+    toast('Preparing to save...');
+    // 1. get current vip.txt to fetch sha and old content
+    const cur = await ghGetContent(owner, repo, path, token);
+    const oldContent = cur.content ? b64ToUtf8(cur.content.replace(/\n/g,'')) : '';
+    const oldSha = cur.sha || null;
+
+    // 2. prepare history entry
+    const timestamp = nowWIBString();
+    const logEntry = {
+      id: Date.now(),
+      timestamp,
+      by: 'web',
+      note: 'autosave',
+      sha: oldSha,
+      content: oldContent
+    };
+
+    // 3. fetch history.json
+    const historyPath = (()=>{ // compute history path inside same dir
+      const parts = path.split('/');
+      parts.pop();
+      parts.push('history.json');
+      return parts.join('/');
+    })();
+
+    let historyArr = [];
+    let historySha = null;
+    try {
+      const histResp = await ghGetContent(owner, repo, historyPath, token);
+      const histText = histResp.content ? b64ToUtf8(histResp.content.replace(/\n/g,'')) : '';
+      historyArr = histText ? JSON.parse(histText) : [];
+      historySha = histResp.sha;
+    } catch (errHistory) {
+      // if not found, we'll create new file — proceed silently
+      historyArr = [];
+      historySha = null;
+    }
+
+    // add new entry at start
+    historyArr.unshift({ ...logEntry });
+
+    // 4. put updated history.json to GitHub
+    const newHistoryB64 = utf8ToB64(JSON.stringify(historyArr, null, 2));
+    await ghPutContent(owner, repo, historyPath, `Add history entry — ${timestamp} (WIB)`, newHistoryB64, historySha, token);
+
+    // 5. update vip.txt
+    const contentB64 = utf8ToB64(contentRaw);
+    const putResp = await ghPutContent(owner, repo, path, `Update vip.txt — ${timestamp} (WIB)`, contentB64, oldSha, token);
+
+    // update UI
+    shaEl.textContent = (putResp.content && putResp.content.sha) ? putResp.content.sha : '-';
+    // cache history locally
+    currentHistory = historyArr;
+    localStorage.setItem(`${owner}/${repo}/${historyPath}`, JSON.stringify(historyArr));
+    toast('Saved & history updated ✅', true);
+  } catch (e) {
+    toast('Save error: ' + e.message, false);
+  }
+}
+
+/* === History UI / Restore / Diff === */
+function renderHistoryList(arr) {
+  historyList.innerHTML = '';
+  if (!arr.length) {
+    historyList.innerHTML = '<div class="small">No history entries found.</div>';
+    return;
+  }
+  arr.forEach((entry, idx) => {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'history-item';
+    const left = document.createElement('div');
+    left.innerHTML = `<div style="font-weight:700">${entry.timestamp}</div><div class="small">${entry.note||''} • sha: ${entry.sha||'-'}</div>`;
+    const right = document.createElement('div' );
+    right.style.display='flex'; right.style.gap='8px';
+    const btnView = document.createElement('button'); btnView.className='ghost'; btnView.textContent='View';
+    const btnDiff = document.createElement('button'); btnDiff.className='ghost'; btnDiff.textContent='Diff';
+    const btnRestore = document.createElement('button'); btnRestore.className='ghost'; btnRestore.textContent='Restore';
+
+    btnView.onclick = ()=>{ previewBox.style.display='block'; previewBox.textContent = entry.content || '(empty)'; toast('Preview loaded', true); selectedHistoryIndex = idx; };
+    btnDiff.onclick = ()=>{ showDiff(entry.content); selectedHistoryIndex = idx; };
+    btnRestore.onclick = ()=>{ if(confirm('Restore this version into editor? This will put its content into the editor (you still must Save to commit).')) { editor.value = entry.content || ''; toast('Version restored into editor — press Save to commit', true); selectedHistoryIndex = idx; } };
+
+    right.appendChild(btnView); right.appendChild(btnDiff); right.appendChild(btnRestore);
+    wrapper.appendChild(left); wrapper.appendChild(right);
+    historyList.appendChild(wrapper);
+  });
+}
+
+function showDiff(oldText) {
+  // simple line-by-line diff vs current editor
+  const cur = editor.value.split(/\r?\n/);
+  const prev = (oldText||'').split(/\r?\n/);
+  const max = Math.max(cur.length, prev.length);
+  const lines = [];
+  for (let i=0;i<max;i++){
+    const a = prev[i] || '';
+    const b = cur[i] || '';
+    if (a === b) {
+      lines.push(`<div>${escapeHtml(b)}</div>`);
+    } else {
+      if (a) lines.push(`<div class="diff-removed">- ${escapeHtml(a)}</div>`);
+      if (b) lines.push(`<div class="diff-added">+ ${escapeHtml(b)}</div>`);
+    }
+  }
+  previewBox.style.display = 'block';
+  previewBox.innerHTML = lines.join('');
+  toast('Diff ready', true);
+}
+
+function escapeHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+async function openHistoryPanel() {
+  historyPanel.style.display = 'block';
+  // Try load history from GitHub first
+  const { owner, repo } = getDefaultPaths();
+  const historyPath = (()=>{ const p = pathEl.value.split('/'); p.pop(); p.push('history.json'); return p.join('/'); })();
+  try {
+    const token = tokenEl.value.trim();
+    const j = await ghGetContent(owner, repo, historyPath, token || null);
+    const txt = j.content ? b64ToUtf8(j.content.replace(/\n/g,'')) : '';
+    currentHistory = txt ? JSON.parse(txt) : [];
+    renderHistoryList(currentHistory);
+    toast('History loaded from GitHub', true);
+  } catch (e) {
+    // fallback to localStorage
+    const key = `${owner}/${repo}/${historyPath}`;
+    const local = localStorage.getItem(key);
+    if (local) {
+      currentHistory = JSON.parse(local);
+      renderHistoryList(currentHistory);
+      toast('Loaded history from localStorage (fallback)', true);
+    } else {
+      renderHistoryList([]);
+      toast('No history found', false);
+    }
+  }
+}
+
+/* === Bind events === */
+btnLoad.onclick = loadFile;
+btnSave.onclick = saveFile;
+btnHistory.onclick = ()=>{ openHistoryPanel(); };
+$('btnCloseHistory').onclick = ()=>{ historyPanel.style.display='none'; previewBox.style.display='none'; };
+$('btnRefreshHistory').onclick = ()=>openHistoryPanel();
+btnPreview.onclick = ()=>{ // preview current editor
+  previewBox.style.display = 'block'; previewBox.textContent = editor.value || '(empty)'; toast('Preview ready', true);
+};
+btnClear.onclick = ()=>{ if(confirm('Clear editor?')){ editor.value=''; previewBox.style.display='none'; toast('Editor cleared', true); } };
+
+// keyboard shortcuts
+editor.addEventListener('keydown', (e)=>{
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveFile(); }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'b') { e.preventDefault(); openHistoryPanel(); }
+});
+
+/* === Init: try to load file silently (no token required for public) === */
+(async ()=>{ try{ await loadFile(); }catch(e){} })();
+
+</script>
+</body>
+</html>
