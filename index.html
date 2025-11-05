@@ -151,7 +151,7 @@ async function saveFile(){
     const putResp=await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${path}`,{
       method:'PUT',
       headers:{'Authorization':'token '+token,'Content-Type':'application/json'},
-      body:JSON.stringify({message:'Update wl.txt',content:contentB64,sha})
+      body:JSON.stringify({message:'Update VIP.txt',content:contentB64,sha})
     });
     if(!putResp.ok) throw new Error('Failed to save: '+putResp.status);
   }catch(e){ console.error(e); toast(e.message); }
