@@ -11,10 +11,11 @@ header{padding:30px;text-align:center;}
 h1{font-size:40px;font-weight:800;letter-spacing:4px;animation:rgbText 6s linear infinite;}
 @keyframes rgbText{0%{color:#ff3b3b}25%{color:#ffdd57}50%{color:#3bffb0}75%{color:#7aa2ff}100%{color:#ff3b3b}}
 .controls{display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;transition:all .3s}
-input,select,button{padding:8px;border-radius:6px;border:none;font-size:14px;transition:all .3s}
+input,select,button,textarea{padding:8px;border-radius:6px;border:none;font-size:14px;transition:all .3s}
 button{cursor:pointer;background:linear-gradient(90deg,#06b6d4,#8b5cf6);color:#001;font-weight:700}
 button:hover{transform:scale(1.05)}
 textarea{width:100%;height:200px;background:rgba(255,255,255,0.03);color:#e6eef8;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);resize:vertical;outline:none;transition:all .3s;}
+#addEntries{height:120px !important;}
 .history-list{max-height:250px;overflow:auto;background:rgba(0,0,0,0.35);padding:10px;border-radius:8px;width:100%;transition:all .3s;}
 .history-item{display:flex;justify-content:space-between;align-items:center;padding:6px;margin-bottom:6px;background:linear-gradient(90deg,rgba(255,255,255,0.01),transparent);border-radius:6px;transition:all .5s;opacity:0;}
 .history-item.show{opacity:1;}
@@ -31,7 +32,6 @@ textarea{width:100%;height:200px;background:rgba(255,255,255,0.03);color:#e6eef8
 <header>
 <h1 class="rainbow-text">PANEL Auto Walk Free</h1>
 </header>
-
 <div class="controls">
 <input id="owner" type="text" placeholder="Owner" value="rebelscodeee-max">
 <input id="repo" type="text" placeholder="Repo" value="teszzting">
@@ -40,9 +40,8 @@ textarea{width:100%;height:200px;background:rgba(255,255,255,0.03);color:#e6eef8
 <button id="btnLoad">Load File</button>
 <button id="btnSave">Save to GitHub</button>
 </div>
-
 <div class="controls">
-<input id="newEntry" type="text" placeholder="Add new entry">
+<textarea id="addEntries" placeholder="Add entries (massal, satu per baris atau pisah koma)&#10;Contoh:&#10;user1&#10;user2 --vip&#10;user3 --7d"></textarea>
 <select id="ttlSelect">
 <option value="2m">2 minutes</option>
 <option value="5m">5 minutes</option>
@@ -58,26 +57,21 @@ textarea{width:100%;height:200px;background:rgba(255,255,255,0.03);color:#e6eef8
 <option value="perm">Permanent</option>
 <option value="vip">VIP</option>
 </select>
-<button id="btnAdd">Add Entry</button>
+<button id="btnAdd">Add Massal</button>
 </div>
-
 <div id="statusPanel">Loading auto-remove status...</div>
-<textarea id="editor" placeholder="Raw vip.txt content"></textarea>
+<textarea id="editor" placeholder="Raw whitelist content"></textarea>
 <div class="history-list" id="entriesList"></div>
 <div id="notif"></div>
-
 <script>
 const $ = id => document.getElementById(id);
 const ownerEl=$('owner'), repoEl=$('repo'), pathEl=$('path'), tokenEl=$('token'), editor=$('editor'), entriesList=$('entriesList'), statusPanel=$('statusPanel');
-const btnLoad=$('btnLoad'), btnAdd=$('btnAdd'), btnSave=$('btnSave'), newEntry=$('newEntry'), ttlSelect=$('ttlSelect'), notif=$('notif');
-
+const btnLoad=$('btnLoad'), btnAdd=$('btnAdd'), btnSave=$('btnSave'), addEntries=$('addEntries'), ttlSelect=$('ttlSelect'), notif=$('notif');
 function toast(msg){ notif.textContent=msg; notif.style.display='block'; setTimeout(()=>notif.style.display='none',3000); }
 function parseTTL(ttl){ if(ttl==='perm'||ttl==='vip') return null; if(ttl.endsWith('m')) return Date.now()+parseInt(ttl)*60000; if(ttl.endsWith('h')) return Date.now()+parseInt(ttl)*3600000; if(ttl.endsWith('d')) return Date.now()+parseInt(ttl)*24*3600000; return null; }
 function ttlLabel(ttl){ if(ttl==='perm') return 'Permanent'; if(ttl==='vip') return 'VIP'; if(ttl.endsWith('m')) return ttl.replace('m',' minute(s)'); if(ttl.endsWith('h')) return ttl.replace('h',' hour(s)'); if(ttl.endsWith('d')) return ttl.replace('d',' day(s)'); return ttl; }
 function msToTime(ms){const t=Math.max(0,Math.floor(ms/1000)); const d=Math.floor(t/86400); const h=Math.floor((t%86400)/3600); const m=Math.floor((t%3600)/60); const s=t%60; let str=''; if(d>0)str+=d+'d '; if(h>0)str+=h+'h '; if(m>0)str+=m+'m '; str+=s+'s'; return str; }
-
 let entriesCache=[];
-
 function renderEntries(){
   entriesList.innerHTML='';
   if(entriesCache.length===0){ entriesList.innerHTML='<div class="small">No whitelist entries</div>'; return; }
@@ -94,17 +88,14 @@ function renderEntries(){
     div.querySelector('div').appendChild(spanExpire);
     entriesList.appendChild(div);
     e.dom = spanExpire;
-
     updateCountdownFade(e, div);
   });
 }
-
 function updateCountdownFade(e, div){
   if(!e.expiresAt) return;
   const interval = setInterval(async ()=>{
     const remaining = e.expiresAt - Date.now();
     if(remaining <= 0){
-      // Fade out
       div.classList.add('fade-out');
       setTimeout(async ()=>{
         entriesCache = entriesCache.filter(x=>x!==e);
@@ -112,19 +103,18 @@ function updateCountdownFade(e, div){
         renderEntries();
         await saveFile();
         toast(`Entry expired and removed: ${e.value}`);
-      },2000); // durasi fade-out sesuai CSS
+      },2000);
       clearInterval(interval);
       return;
     }
     e.dom.textContent = ttlLabel(e.ttlVal)+' • Expires in '+msToTime(remaining);
   },1000);
 }
-
 async function loadFile(){
   const owner=ownerEl.value.trim(), repo=repoEl.value.trim(), path=pathEl.value.trim();
   if(!owner||!repo||!path) return toast('Owner/Repo/Path required');
   try{
-    toast('Loading vip.txt...');
+    toast('Loading whitelist.txt...');
     const r=await fetch(`https://raw.githubusercontent.com/${owner}/${repo}/main/${path}`);
     if(!r.ok) throw new Error('Failed to load file: '+r.status);
     const raw=await r.text();
@@ -133,13 +123,12 @@ async function loadFile(){
       if(!l.trim()) return null;
       const [valuePart, exp] = l.split(' --');
       let expiresAt = ['perm','vip'].includes(exp)? null : Number(exp);
-      return {value: valuePart + (exp ? ' --' + exp : ''), ttlVal: exp || 'perm', expiresAt};
+      return {value: l.trim(), ttlVal: exp || 'perm', expiresAt};
     }).filter(Boolean);
     renderEntries();
     toast('File loaded ✅');
   }catch(e){ toast(e.message); }
 }
-
 async function saveFile(){
   const owner=ownerEl.value.trim(), repo=repoEl.value.trim(), path=pathEl.value.trim(), token=tokenEl.value.trim();
   if(!owner||!repo||!path||!token) return toast('Owner/Repo/Path/Token required');
@@ -154,23 +143,51 @@ async function saveFile(){
       body:JSON.stringify({message:'Update whitelist.txt',content:contentB64,sha})
     });
     if(!putResp.ok) throw new Error('Failed to save: '+putResp.status);
+    toast('Saved to GitHub ✅');
   }catch(e){ console.error(e); toast(e.message); }
 }
-
 btnAdd.onclick = async () => {
-  const val = newEntry.value.trim();
-  if (!val) return toast('Entry empty');
-  const ttl = ttlSelect.value;
-  const exp = parseTTL(ttl);
-
-  const entry = {value: val + ' --' + (exp || ttl), ttlVal: ttl, expiresAt: exp};
-  entriesCache.push(entry);
-  editor.value = entriesCache.map(e=>e.value).join('\n');
-
+  const raw = addEntries.value.trim();
+  if (!raw) return toast('Tidak ada entry yang dimasukkan');
+  const defaultTTL = ttlSelect.value;
+  
+  // Split by newline or comma
+  const lines = raw.split(/\r?\n|,/).map(l => l.trim()).filter(l => l);
+  
+  let added = 0;
+  for (let line of lines) {
+    if (!line) continue;
+    
+    // Jika sudah ada --ttl di baris, pakai itu
+    let value, ttlVal;
+    if (line.includes(' --')) {
+      const parts = line.split(' --');
+      value = parts[0].trim();
+      ttlVal = parts[1].trim();
+    } else {
+      value = line;
+      ttlVal = defaultTTL;
+    }
+    
+    const exp = parseTTL(ttlVal);
+    const fullEntry = value + (exp !== null || ['perm','vip'].includes(ttlVal) ? ' --' + ttlVal : '');
+    
+    // Cek duplikat
+    if (entriesCache.some(e => e.value === fullEntry)) continue;
+    
+    entriesCache.push({value: fullEntry, ttlVal, expiresAt: exp});
+    added++;
+  }
+  
+  if (added === 0) {
+    toast('Tidak ada entry baru yang ditambahkan (mungkin duplikat)');
+    return;
+  }
+  
+  editor.value = entriesCache.map(e => e.value).join('\n');
   renderEntries();
-  newEntry.value = '';
-  toast('Entry added ✅');
-
+  addEntries.value = '';
+  toast(`Berhasil tambah ${added} entry ✅`);
   await saveFile();
 }
 
@@ -180,7 +197,6 @@ async function updateAutoRemoveStatus() {
   const repo = repoEl.value.trim();
   const path = pathEl.value.trim();
   if (!owner || !repo || !path) return;
-
   try {
     const resp = await fetch(`https://api.github.com/repos/${owner}/${repo}/commits?path=${path}&per_page=1`);
     if (!resp.ok) throw new Error('Failed fetch commits: ' + resp.status);
@@ -199,8 +215,7 @@ async function updateAutoRemoveStatus() {
     statusPanel.textContent = 'Failed to fetch auto-remove status.';
   }
 }
-
-btnLoad.onclick=loadFile; 
+btnLoad.onclick=loadFile;
 btnSave.onclick=saveFile;
 setInterval(updateAutoRemoveStatus,30000);
 updateAutoRemoveStatus();
