@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Panel Auto Walk Free — Whitelist Web Panel</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;700;800&display=swap" rel="stylesheet">
+<style>
+body{background:linear-gradient(120deg,#020617,#07102a 40%,#0b1220 100%);color:#e6eef8;font-family:Poppins,sans-serif;margin:0;padding:0;display:flex;flex-direction:column;align-items:center;}
+header{padding:30px;text-align:center;}
+h1{font-size:40px;font-weight:800;letter-spacing:4px;animation:rgbText 6s linear infinite;}
+@keyframes rgbText{0%{color:#ff3b3b}25%{color:#ffdd57}50%{color:#3bffb0}75%{color:#7aa2ff}100%{color:#ff3b3b}}
+.controls{display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;transition:all .3s}
+input,select,button{padding:8px;border-radius:6px;border:none;font-size:14px;transition:all .3s}
+button{cursor:pointer;background:linear-gradient(90deg,#06b6d4,#8b5cf6);color:#001;font-weight:700}
+button:hover{transform:scale(1.05)}
+textarea{width:100%;height:200px;background:rgba(255,255,255,0.03);color:#e6eef8;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);resize:vertical;outline:none;transition:all .3s;}
+.history-list{max-height:250px;overflow:auto;background:rgba(0,0,0,0.35);padding:10px;border-radius:8px;width:100%;transition:all .3s;}
+.history-item{display:flex;justify-content:space-between;align-items:center;padding:6px;margin-bottom:6px;background:linear-gradient(90deg,rgba(255,255,255,0.01),transparent);border-radius:6px;transition:all .5s;opacity:0;}
+.history-item.show{opacity:1;}
+.history-item.fade-out{opacity:0;transition:opacity 2s ease;}
+.rainbow-text{animation:rainbow 4s linear infinite}
+@keyframes rainbow{0%{color:#ff3b3b}16%{color:#ffdd57}32%{color:#3bffb0}48%{color:#7aa2ff}64%{color:#ff3b3b}80%{color:#ffdd57}100%{color:#3bffb0}}
+.avatar{width:24px;height:24px;border-radius:50%;margin-right:6px;}
+.entry-left{display:flex;align-items:center;gap:6px;}
+#notif{position:fixed;bottom:10px;right:10px;padding:10px;background:linear-gradient(90deg,#052e11,#083b21);border-radius:6px;display:none;color:#fff;transition:all .3s;}
+#statusPanel{margin-bottom:10px;font-size:14px;color:#fff;}
+</style>
+</head>
+<body>
+<header>
+<h1 class="rainbow-text">PANEL Auto Walk Free</h1>
+</header>
+
+<div class="controls">
+<input id="owner" type="text" placeholder="Owner" value="rebelscodeee-max">
+<input id="repo" type="text" placeholder="Repo" value="teszzting">
+<input id="path" type="text" placeholder="Path" value="loader/whitelist.txt">
+<input id="token" type="password" placeholder="GitHub Token">
+<button id="btnLoad">Load File</button>
+<button id="btnSave">Save to GitHub</button>
+</div>
+
+<div class="controls">
+<input id="newEntry" type="text" placeholder="Add new entry">
+<select id="ttlSelect">
+<option value="2m">2 minutes</option>
+<option value="5m">5 minutes</option>
+<option value="1h">1 hour</option>
+<option value="6h">6 hours</option>
+<option value="12h">12 hours</option>
+<option value="1d">1 day</option>
+<option value="2d">2 days</option>
+<option value="3d">3 days</option>
+<option value="7d">7 days</option>
+<option value="14d">14 days</option>
+<option value="30d">30 days</option>
+<option value="perm">Permanent</option>
+<option value="vip">VIP</option>
+</select>
+<button id="btnAdd">Add Entry</button>
+</div>
+
+<div id="statusPanel">Loading auto-remove status...</div>
+<textarea id="editor" placeholder="Raw vip.txt content"></textarea>
+<div class="history-list" id="entriesList"></div>
+<div id="notif"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const ownerEl=$('owner'), repoEl=$('repo'), pathEl=$('path'), tokenEl=$('token'), editor=$('editor'), entriesList=$('entriesList'), statusPanel=$('statusPanel');
+const btnLoad=$('btnLoad'), btnAdd=$('btnAdd'), btnSave=$('btnSave'), newEntry=$('newEntry'), ttlSelect=$('ttlSelect'), notif=$('notif');
+
+function toast(msg){ notif.textContent=msg; notif.style.display='block'; setTimeout(()=>notif.style.display='none',3000); }
+function parseTTL(ttl){ if(ttl==='perm'||ttl==='vip') return null; if(ttl.endsWith('m')) return Date.now()+parseInt(ttl)*60000; if(ttl.endsWith('h')) return Date.now()+parseInt(ttl)*3600000; if(ttl.endsWith('d')) return Date.now()+parseInt(ttl)*24*3600000; return null; }
+function ttlLabel(ttl){ if(ttl==='perm') return 'Permanent'; if(ttl==='vip') return 'VIP'; if(ttl.endsWith('m')) return ttl.replace('m',' minute(s)'); if(ttl.endsWith('h')) return ttl.replace('h',' hour(s)'); if(ttl.endsWith('d')) return ttl.replace('d',' day(s)'); return ttl; }
+function msToTime(ms){const t=Math.max(0,Math.floor(ms/1000)); const d=Math.floor(t/86400); const h=Math.floor((t%86400)/3600); const m=Math.floor((t%3600)/60); const s=t%60; let str=''; if(d>0)str+=d+'d '; if(h>0)str+=h+'h '; if(m>0)str+=m+'m '; str+=s+'s'; return str; }
+
+let entriesCache=[];
+
+function renderEntries(){
+  entriesList.innerHTML='';
+  if(entriesCache.length===0){ entriesList.innerHTML='<div class="small">No whitelist entries</div>'; return; }
+  const now = Date.now();
+  entriesCache.forEach((e)=>{
+    const div=document.createElement('div'); div.className='history-item';
+    setTimeout(()=>div.classList.add('show'),50);
+    const avatarUrl=`https://github.com/${e.value.split(' ')[0]}.png?size=24`;
+    const spanExpire = document.createElement('span'); spanExpire.className='rainbow-text';
+    div.innerHTML=`<div class="entry-left">
+      <img src="${avatarUrl}" class="avatar" onerror="this.src='https://via.placeholder.com/24'">
+      <div><b>${e.value}</b><br></div>
+    </div>`;
+    div.querySelector('div').appendChild(spanExpire);
+    entriesList.appendChild(div);
+    e.dom = spanExpire;
+
+    updateCountdownFade(e, div);
+  });
+}
+
+function updateCountdownFade(e, div){
+  if(!e.expiresAt) return;
+  const interval = setInterval(async ()=>{
+    const remaining = e.expiresAt - Date.now();
+    if(remaining <= 0){
+      // Fade out
+      div.classList.add('fade-out');
+      setTimeout(async ()=>{
+        entriesCache = entriesCache.filter(x=>x!==e);
+        editor.value = entriesCache.map(x=>x.value).join('\n');
+        renderEntries();
+        await saveFile();
+        toast(`Entry expired and removed: ${e.value}`);
+      },2000); // durasi fade-out sesuai CSS
+      clearInterval(interval);
+      return;
+    }
+    e.dom.textContent = ttlLabel(e.ttlVal)+' • Expires in '+msToTime(remaining);
+  },1000);
+}
+
+async function loadFile(){
+  const owner=ownerEl.value.trim(), repo=repoEl.value.trim(), path=pathEl.value.trim();
+  if(!owner||!repo||!path) return toast('Owner/Repo/Path required');
+  try{
+    toast('Loading vip.txt...');
+    const r=await fetch(`https://raw.githubusercontent.com/${owner}/${repo}/main/${path}`);
+    if(!r.ok) throw new Error('Failed to load file: '+r.status);
+    const raw=await r.text();
+    editor.value=raw;
+    entriesCache=raw.split(/\r?\n/).map(l=>{
+      if(!l.trim()) return null;
+      const [valuePart, exp] = l.split(' --');
+      let expiresAt = ['perm','vip'].includes(exp)? null : Number(exp);
+      return {value: valuePart + (exp ? ' --' + exp : ''), ttlVal: exp || 'perm', expiresAt};
+    }).filter(Boolean);
+    renderEntries();
+    toast('File loaded ✅');
+  }catch(e){ toast(e.message); }
+}
+
+async function saveFile(){
+  const owner=ownerEl.value.trim(), repo=repoEl.value.trim(), path=pathEl.value.trim(), token=tokenEl.value.trim();
+  if(!owner||!repo||!path||!token) return toast('Owner/Repo/Path/Token required');
+  try{
+    const curResp=await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${path}`, {headers:{'Authorization':'token '+token}});
+    const cur=await curResp.json();
+    const sha=cur.sha;
+    const contentB64=btoa(unescape(encodeURIComponent(editor.value)));
+    const putResp=await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${path}`,{
+      method:'PUT',
+      headers:{'Authorization':'token '+token,'Content-Type':'application/json'},
+      body:JSON.stringify({message:'Update whitelist.txt',content:contentB64,sha})
+    });
+    if(!putResp.ok) throw new Error('Failed to save: '+putResp.status);
+  }catch(e){ console.error(e); toast(e.message); }
+}
+
+btnAdd.onclick = async () => {
+  const val = newEntry.value.trim();
+  if (!val) return toast('Entry empty');
+  const ttl = ttlSelect.value;
+  const exp = parseTTL(ttl);
+
+  const entry = {value: val + ' --' + (exp || ttl), ttlVal: ttl, expiresAt: exp};
+  entriesCache.push(entry);
+  editor.value = entriesCache.map(e=>e.value).join('\n');
+
+  renderEntries();
+  newEntry.value = '';
+  toast('Entry added ✅');
+
+  await saveFile();
+}
+
+// Status auto-remove terakhir dari GitHub
+async function updateAutoRemoveStatus() {
+  const owner = ownerEl.value.trim();
+  const repo = repoEl.value.trim();
+  const path = pathEl.value.trim();
+  if (!owner || !repo || !path) return;
+
+  try {
+    const resp = await fetch(`https://api.github.com/repos/${owner}/${repo}/commits?path=${path}&per_page=1`);
+    if (!resp.ok) throw new Error('Failed fetch commits: ' + resp.status);
+    const data = await resp.json();
+    if (data.length === 0) {
+      statusPanel.textContent = 'No auto-remove activity found.';
+      return;
+    }
+    const commit = data[0];
+    const commitDate = new Date(commit.commit.author.date);
+    const now = new Date();
+    const diffMin = Math.floor((now - commitDate) / 60000);
+    statusPanel.textContent = `Last auto-remove: ${diffMin} minute(s) ago. Commit: "${commit.commit.message}"`;
+  } catch (e) {
+    console.error(e);
+    statusPanel.textContent = 'Failed to fetch auto-remove status.';
+  }
+}
+
+btnLoad.onclick=loadFile; 
+btnSave.onclick=saveFile;
+setInterval(updateAutoRemoveStatus,30000);
+updateAutoRemoveStatus();
+</script>
+</body>
+</html>
