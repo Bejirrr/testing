@@ -1,0 +1,516 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Panel Auto Walk Free — Token Management System</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;700;800&display=swap" rel="stylesheet">
+<style>
+body{background:linear-gradient(120deg,#020617,#07102a 40%,#0b1220 100%);color:#e6eef8;font-family:Poppins,sans-serif;margin:0;padding:0;display:flex;flex-direction:column;align-items:center;min-height:100vh;}
+header{padding:30px;text-align:center;}
+h1{font-size:40px;font-weight:800;letter-spacing:4px;animation:rgbText 6s linear infinite;}
+@keyframes rgbText{0%{color:#ff3b3b}25%{color:#ffdd57}50%{color:#3bffb0}75%{color:#7aa2ff}100%{color:#ff3b3b}}
+.container{max-width:1200px;width:95%;margin:0 auto;}
+.controls{display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;transition:all .3s}
+input,select,button{padding:8px;border-radius:6px;border:none;font-size:14px;transition:all .3s}
+button{cursor:pointer;background:linear-gradient(90deg,#06b6d4,#8b5cf6);color:#001;font-weight:700}
+button:hover{transform:scale(1.05)}
+button:disabled{opacity:0.5;cursor:not-allowed;transform:none;}
+textarea{width:100%;height:200px;background:rgba(255,255,255,0.03);color:#e6eef8;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);resize:vertical;outline:none;transition:all .3s;}
+.history-list{max-height:400px;overflow:auto;background:rgba(0,0,0,0.35);padding:10px;border-radius:8px;width:100%;transition:all .3s;margin-top:10px;}
+.history-item{display:flex;justify-content:space-between;align-items:center;padding:10px;margin-bottom:8px;background:linear-gradient(90deg,rgba(255,255,255,0.05),transparent);border-radius:6px;transition:all .5s;opacity:0;border-left:3px solid transparent;}
+.history-item.show{opacity:1;}
+.history-item.fade-out{opacity:0;transition:opacity 2s ease;}
+.history-item.unlimited{border-left-color:#32cd32;}
+.history-item.warning{border-left-color:#ffd700;}
+.history-item.critical{border-left-color:#ff4500;}
+.history-item.expired{border-left-color:#ff0000;background:rgba(255,0,0,0.1);}
+.rainbow-text{animation:rainbow 4s linear infinite}
+@keyframes rainbow{0%{color:#ff3b3b}16%{color:#ffdd57}32%{color:#3bffb0}48%{color:#7aa2ff}64%{color:#ff3b3b}80%{color:#ffdd57}100%{color:#3bffb0}}
+.avatar{width:32px;height:32px;border-radius:50%;margin-right:10px;border:2px solid rgba(255,255,255,0.3);}
+.entry-left{display:flex;align-items:center;gap:10px;flex:1;}
+.entry-info{display:flex;flex-direction:column;gap:2px;}
+.entry-username{font-weight:700;font-size:15px;}
+.entry-token{font-size:11px;color:#888;font-family:monospace;}
+.entry-hwid{font-size:10px;color:#666;font-family:monospace;max-width:200px;overflow:hidden;text-overflow:ellipsis;}
+.entry-right{display:flex;align-items:center;gap:10px;}
+.status-badge{padding:4px 10px;border-radius:12px;font-size:11px;font-weight:700;white-space:nowrap;}
+.badge-unlimited{background:#32cd32;color:#000;}
+.badge-active{background:#3bffb0;color:#000;}
+.badge-warning{background:#ffd700;color:#000;}
+.badge-critical{background:#ff4500;color:#fff;}
+.badge-expired{background:#ff0000;color:#fff;}
+.delete-btn{padding:5px 12px;background:#ff4444;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:12px;font-weight:700;}
+.delete-btn:hover{background:#ff6666;}
+#notif{position:fixed;bottom:10px;right:10px;padding:12px 20px;background:linear-gradient(90deg,#052e11,#083b21);border-radius:8px;display:none;color:#fff;transition:all .3s;box-shadow:0 4px 12px rgba(0,0,0,0.5);z-index:1000;}
+#notif.error{background:linear-gradient(90deg,#4a0e0e,#7a1414);}
+#statusPanel{margin-bottom:10px;padding:10px;background:rgba(255,255,255,0.05);border-radius:6px;font-size:13px;color:#aaa;}
+.section{background:rgba(255,255,255,0.03);padding:20px;border-radius:10px;margin-bottom:20px;border:1px solid rgba(255,255,255,0.1);}
+.section-title{font-size:18px;font-weight:700;margin-bottom:15px;color:#7aa2ff;}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:15px;margin-bottom:20px;}
+.stat-card{background:rgba(255,255,255,0.05);padding:15px;border-radius:8px;text-align:center;border:1px solid rgba(255,255,255,0.1);}
+.stat-value{font-size:28px;font-weight:800;color:#3bffb0;}
+.stat-label{font-size:12px;color:#888;margin-top:5px;}
+.input-group{display:flex;gap:10px;align-items:end;margin-bottom:15px;flex-wrap:wrap;}
+.input-wrapper{flex:1;min-width:150px;}
+.input-label{font-size:12px;color:#aaa;margin-bottom:5px;display:block;}
+</style>
+</head>
+<body>
+<header>
+<h1 class="rainbow-text">PANEL Token Management System</h1>
+</header>
+
+<div class="container">
+<!-- GitHub Configuration -->
+<div class="section">
+<div class="section-title">🔧 GitHub Configuration</div>
+<div class="controls">
+<input id="owner" type="text" placeholder="Owner" value="rebelscodeee-max">
+<input id="repo" type="text" placeholder="Repo" value="teszzting">
+<input id="path" type="text" placeholder="Path" value="loader/whitelist.txt">
+<input id="token" type="password" placeholder="GitHub Token">
+<button id="btnLoad">📥 Load File</button>
+<button id="btnSave">💾 Save to GitHub</button>
+</div>
+<div id="statusPanel">⏳ Ready to load...</div>
+</div>
+
+<!-- Statistics -->
+<div class="stats-grid">
+<div class="stat-card">
+<div class="stat-value" id="totalUsers">0</div>
+<div class="stat-label">Total Users</div>
+</div>
+<div class="stat-card">
+<div class="stat-value" id="activeUsers">0</div>
+<div class="stat-label">Active Users</div>
+</div>
+<div class="stat-card">
+<div class="stat-value" id="expiredUsers">0</div>
+<div class="stat-label">Expired Users</div>
+</div>
+<div class="stat-card">
+<div class="stat-value" id="unlimitedUsers">0</div>
+<div class="stat-label">Unlimited Users</div>
+</div>
+</div>
+
+<!-- Add New User -->
+<div class="section">
+<div class="section-title">➕ Add New User</div>
+<div style="display:grid;grid-template-columns:1fr 2fr 1fr 150px;gap:12px;margin-bottom:15px;align-items:end;">
+<div style="display:flex;flex-direction:column;">
+<label class="input-label">Username</label>
+<input id="newUsername" type="text" placeholder="Enter username" style="width:100%;padding:10px;box-sizing:border-box;">
+</div>
+<div style="display:flex;flex-direction:column;">
+<label class="input-label">Token</label>
+<input id="newToken" type="text" placeholder="Auto-generate or custom" style="width:100%;padding:10px;box-sizing:border-box;">
+</div>
+<div style="display:flex;flex-direction:column;">
+<label class="input-label">HWID</label>
+<input id="newHWID" type="text" placeholder="User's HWID" style="width:100%;padding:10px;box-sizing:border-box;">
+</div>
+<div style="display:flex;flex-direction:column;">
+<label class="input-label">Duration</label>
+<select id="ttlSelect" style="width:100%;padding:10px;box-sizing:border-box;">
+<option value="2m">2 minutes</option>
+<option value="5m">5 minutes</option>
+<option value="1h">1 hour</option>
+<option value="6h">6 hours</option>
+<option value="12h">12 hours</option>
+<option value="1d">1 day</option>
+<option value="2d">2 days</option>
+<option value="3d">3 days</option>
+<option value="7d" selected>7 days</option>
+<option value="14d">14 days</option>
+<option value="30d">30 days</option>
+<option value="unlimited">Unlimited</option>
+</select>
+</div>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+<button id="btnGenerate" style="background:linear-gradient(90deg,#8b5cf6,#06b6d4);padding:12px;">🎲 Generate Token</button>
+<button id="btnAdd" style="padding:12px;">➕ Add User</button>
+</div>
+</div>
+
+<!-- User List -->
+<div class="section">
+<div class="section-title">👥 User Management</div>
+<div class="history-list" id="entriesList"></div>
+</div>
+
+<!-- Raw Data View -->
+<div class="section">
+<div class="section-title">📄 Raw Data (whitelist.txt format)</div>
+<textarea id="editor" placeholder="username --token --hwid --expires"></textarea>
+</div>
+</div>
+
+<div id="notif"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const ownerEl=$('owner'), repoEl=$('repo'), pathEl=$('path'), tokenEl=$('token'), editor=$('editor'), entriesList=$('entriesList'), statusPanel=$('statusPanel');
+const btnLoad=$('btnLoad'), btnAdd=$('btnAdd'), btnSave=$('btnSave'), btnGenerate=$('btnGenerate');
+const newUsername=$('newUsername'), newToken=$('newToken'), newHWID=$('newHWID'), ttlSelect=$('ttlSelect'), notif=$('notif');
+
+function toast(msg, isError = false){ 
+  notif.textContent=msg; 
+  notif.className = isError ? 'error' : '';
+  notif.style.display='block'; 
+  setTimeout(()=>notif.style.display='none',4000); 
+}
+
+function parseTTL(ttl){ 
+  if(ttl==='unlimited') return null; 
+  if(ttl.endsWith('m')) return Date.now()+parseInt(ttl)*60000; 
+  if(ttl.endsWith('h')) return Date.now()+parseInt(ttl)*3600000; 
+  if(ttl.endsWith('d')) return Date.now()+parseInt(ttl)*24*3600000; 
+  return null; 
+}
+
+function ttlLabel(ttl){ 
+  if(ttl==='unlimited') return 'Unlimited'; 
+  if(ttl.endsWith('m')) return ttl.replace('m',' min'); 
+  if(ttl.endsWith('h')) return ttl.replace('h',' hour'); 
+  if(ttl.endsWith('d')) return ttl.replace('d',' day'); 
+  return ttl; 
+}
+
+function msToTime(ms){
+  const t=Math.max(0,Math.floor(ms/1000)); 
+  const d=Math.floor(t/86400); 
+  const h=Math.floor((t%86400)/3600); 
+  const m=Math.floor((t%3600)/60); 
+  const s=t%60; 
+  let str=''; 
+  if(d>0)str+=d+'d '; 
+  if(h>0)str+=h+'h '; 
+  if(m>0)str+=m+'m '; 
+  str+=s+'s'; 
+  return str; 
+}
+
+function generateToken(){
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  const segments = [];
+  for(let i=0; i<4; i++){
+    let segment = '';
+    for(let j=0; j<5; j++){
+      segment += chars[Math.floor(Math.random()*chars.length)];
+    }
+    segments.push(segment);
+  }
+  return segments.join('-');
+}
+
+let entriesCache=[];
+let updateIntervals = [];
+
+function updateStats(){
+  const now = Date.now();
+  let total = entriesCache.length;
+  let active = 0, expired = 0, unlimited = 0;
+  
+  entriesCache.forEach(e => {
+    if(!e.expiresAt){
+      unlimited++;
+      active++;
+    } else if(e.expiresAt > now){
+      active++;
+    } else {
+      expired++;
+    }
+  });
+  
+  $('totalUsers').textContent = total;
+  $('activeUsers').textContent = active;
+  $('expiredUsers').textContent = expired;
+  $('unlimitedUsers').textContent = unlimited;
+}
+
+function parseEntry(line){
+  if(!line.trim()) return null;
+  const parts = line.split(' --');
+  if(parts.length < 4) return null;
+  
+  const username = parts[0].trim();
+  const token = parts[1].trim();
+  const hwid = parts[2].trim();
+  const exp = parts[3].trim();
+  
+  let expiresAt = exp === 'unlimited' ? null : Number(exp);
+  
+  return {
+    username,
+    token,
+    hwid,
+    value: line,
+    ttlVal: exp,
+    expiresAt
+  };
+}
+
+function renderEntries(){
+  // Clear intervals
+  updateIntervals.forEach(i => clearInterval(i));
+  updateIntervals = [];
+  
+  entriesList.innerHTML='';
+  if(entriesCache.length===0){ 
+    entriesList.innerHTML='<div style="text-align:center;padding:20px;color:#666;">No users in whitelist</div>'; 
+    updateStats();
+    return; 
+  }
+  
+  const now = Date.now();
+  entriesCache.forEach((e, idx)=>{
+    const div=document.createElement('div'); 
+    div.className='history-item';
+    
+    const isExpired = e.expiresAt && e.expiresAt <= now;
+    const isUnlimited = !e.expiresAt;
+    const timeLeft = e.expiresAt ? e.expiresAt - now : 0;
+    const daysLeft = Math.floor(timeLeft / 86400000);
+    
+    if(isUnlimited) div.classList.add('unlimited');
+    else if(isExpired) div.classList.add('expired');
+    else if(daysLeft <= 1) div.classList.add('critical');
+    else if(daysLeft <= 7) div.classList.add('warning');
+    
+    setTimeout(()=>div.classList.add('show'),50 * idx);
+    
+    const avatarUrl=`https://ui-avatars.com/api/?name=${e.username}&background=random&size=32`;
+    
+    const statusBadge = document.createElement('span');
+    statusBadge.className = 'status-badge';
+    
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'delete-btn';
+    deleteBtn.textContent = '🗑️ Delete';
+    deleteBtn.onclick = () => deleteEntry(idx);
+    
+    div.innerHTML=`
+      <div class="entry-left">
+        <img src="${avatarUrl}" class="avatar">
+        <div class="entry-info">
+          <div class="entry-username">${e.username}</div>
+          <div class="entry-token">🔑 ${e.token.substring(0,20)}...</div>
+          <div class="entry-hwid">💻 ${e.hwid}</div>
+        </div>
+      </div>
+      <div class="entry-right">
+      </div>
+    `;
+    
+    div.querySelector('.entry-right').appendChild(statusBadge);
+    div.querySelector('.entry-right').appendChild(deleteBtn);
+    entriesList.appendChild(div);
+    
+    if(!e.expiresAt){
+      statusBadge.className = 'status-badge badge-unlimited';
+      statusBadge.textContent = '♾️ Unlimited';
+    } else {
+      updateCountdown(e, statusBadge, div);
+      const interval = setInterval(() => updateCountdown(e, statusBadge, div), 1000);
+      updateIntervals.push(interval);
+    }
+  });
+  
+  updateStats();
+}
+
+function updateCountdown(e, badge, div){
+  const remaining = e.expiresAt - Date.now();
+  
+  if(remaining <= 0){
+    badge.className = 'status-badge badge-expired';
+    badge.textContent = '❌ EXPIRED';
+    div.classList.add('expired');
+    return;
+  }
+  
+  const daysLeft = Math.floor(remaining / 86400000);
+  const hoursLeft = Math.floor((remaining % 86400000) / 3600000);
+  const minutesLeft = Math.floor((remaining % 3600000) / 60000);
+  
+  if(daysLeft > 7){
+    badge.className = 'status-badge badge-active';
+    badge.textContent = `✓ ${daysLeft}d ${hoursLeft}h`;
+  } else if(daysLeft > 1){
+    badge.className = 'status-badge badge-warning';
+    badge.textContent = `⚠️ ${daysLeft}d ${hoursLeft}h`;
+  } else if(daysLeft === 1){
+    badge.className = 'status-badge badge-warning';
+    badge.textContent = `⚠️ 1d ${hoursLeft}h`;
+  } else if(hoursLeft > 0){
+    badge.className = 'status-badge badge-critical';
+    badge.textContent = `🚨 ${hoursLeft}h ${minutesLeft}m`;
+  } else {
+    badge.className = 'status-badge badge-critical';
+    badge.textContent = `🚨 ${minutesLeft}m`;
+  }
+}
+
+function deleteEntry(index){
+  if(confirm(`Delete user "${entriesCache[index].username}"?`)){
+    entriesCache.splice(index, 1);
+    editor.value = entriesCache.map(e=>e.value).join('\n');
+    renderEntries();
+    toast('✓ User deleted');
+    saveFile();
+  }
+}
+
+async function loadFile(){
+  const owner=ownerEl.value.trim(), repo=repoEl.value.trim(), path=pathEl.value.trim();
+  if(!owner||!repo||!path) return toast('Owner/Repo/Path required', true);
+  
+  btnLoad.disabled = true;
+  btnLoad.textContent = '⏳ Loading...';
+  
+  try{
+    statusPanel.textContent = '⏳ Loading whitelist.txt from GitHub...';
+    const r=await fetch(`https://raw.githubusercontent.com/${owner}/${repo}/main/${path}`);
+    if(!r.ok) throw new Error('Failed to load file: '+r.status);
+    const raw=await r.text();
+    editor.value=raw;
+    
+    entriesCache=raw.split(/\r?\n/)
+      .map(l => parseEntry(l))
+      .filter(Boolean);
+    
+    renderEntries();
+    statusPanel.textContent = `✓ Loaded ${entriesCache.length} users from GitHub`;
+    toast('✓ File loaded successfully');
+    updateAutoRemoveStatus();
+  }catch(e){ 
+    toast('✗ ' + e.message, true); 
+    statusPanel.textContent = '✗ Failed to load file';
+  } finally {
+    btnLoad.disabled = false;
+    btnLoad.textContent = '📥 Load File';
+  }
+}
+
+async function saveFile(){
+  const owner=ownerEl.value.trim(), repo=repoEl.value.trim(), path=pathEl.value.trim(), token=tokenEl.value.trim();
+  if(!owner||!repo||!path||!token) return toast('Owner/Repo/Path/Token required', true);
+  
+  btnSave.disabled = true;
+  btnSave.textContent = '⏳ Saving...';
+  statusPanel.textContent = '⏳ Saving to GitHub...';
+  
+  try{
+    const curResp=await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${path}`, {
+      headers:{'Authorization':'token '+token}
+    });
+    const cur=await curResp.json();
+    const sha=cur.sha;
+    const contentB64=btoa(unescape(encodeURIComponent(editor.value)));
+    
+    const putResp=await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${path}`,{
+      method:'PUT',
+      headers:{'Authorization':'token '+token,'Content-Type':'application/json'},
+      body:JSON.stringify({message:'Update whitelist.txt',content:contentB64,sha})
+    });
+    
+    if(!putResp.ok) throw new Error('Failed to save: '+putResp.status);
+    toast('✓ Saved to GitHub successfully');
+    statusPanel.textContent = '✓ Successfully saved to GitHub';
+  }catch(e){ 
+    toast('✗ ' + e.message, true); 
+    statusPanel.textContent = '✗ Failed to save';
+  } finally {
+    btnSave.disabled = false;
+    btnSave.textContent = '💾 Save to GitHub';
+  }
+}
+
+btnGenerate.onclick = () => {
+  newToken.value = generateToken();
+  toast('✓ Token generated');
+};
+
+btnAdd.onclick = async () => {
+  const username = newUsername.value.trim();
+  const token = newToken.value.trim();
+  const hwid = newHWID.value.trim();
+  const ttl = ttlSelect.value;
+  
+  if (!username || !token || !hwid) return toast('All fields are required', true);
+  
+  // Check duplicate username
+  if(entriesCache.some(e => e.username === username)){
+    return toast('Username already exists', true);
+  }
+  
+  const exp = parseTTL(ttl);
+  const expStr = exp || 'unlimited';
+  
+  const entry = {
+    username,
+    token,
+    hwid,
+    value: `${username} --${token} --${hwid} --${expStr}`,
+    ttlVal: ttl,
+    expiresAt: exp
+  };
+  
+  entriesCache.push(entry);
+  editor.value = entriesCache.map(e=>e.value).join('\n');
+  
+  renderEntries();
+  newUsername.value = '';
+  newToken.value = '';
+  newHWID.value = '';
+  toast('✓ User added successfully');
+  
+  await saveFile();
+};
+
+async function updateAutoRemoveStatus() {
+  const owner = ownerEl.value.trim();
+  const repo = repoEl.value.trim();
+  const path = pathEl.value.trim();
+  if (!owner || !repo || !path) return;
+
+  try {
+    const resp = await fetch(`https://api.github.com/repos/${owner}/${repo}/commits?path=${path}&per_page=1`);
+    if (!resp.ok) return;
+    const data = await resp.json();
+    if (data.length === 0) return;
+    
+    const commit = data[0];
+    const commitDate = new Date(commit.commit.author.date);
+    const now = new Date();
+    const diffMin = Math.floor((now - commitDate) / 60000);
+    
+    if(diffMin < 60){
+      statusPanel.textContent = `🔄 Last update: ${diffMin} min ago`;
+    } else {
+      const diffHour = Math.floor(diffMin / 60);
+      statusPanel.textContent = `🔄 Last update: ${diffHour} hour(s) ago`;
+    }
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+btnLoad.onclick=loadFile; 
+btnSave.onclick=saveFile;
+
+// Auto-refresh status
+setInterval(updateAutoRemoveStatus, 30000);
+setInterval(() => {
+  if(entriesCache.length > 0) renderEntries();
+}, 60000);
+
+// Initial load attempt
+setTimeout(loadFile, 500);
+</script>
+</body>
+</html>
